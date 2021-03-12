@@ -29,7 +29,7 @@ $event = $events[0];
 try {
 
     // データベースに接続
-    $pdo = new PDO(
+    $dbh = new PDO(
         'mysql:dbname=LAA1276112-linebot;host=mysql150.phy.lolipop.lan;charset=utf8mb4',
         'LAA1276112',
         'LINEadmin',
@@ -51,7 +51,7 @@ try {
 //LINEBOTユーザ登録処理
 /*user_idを取り出し、既に登録されているかどうかを確認*/
 $user_id = $event->getUserId();
-$stmt = $pdo -> prepare("SELECT count(*) FROM user WHERE user_id = :user_id");
+$stmt = $dbh -> prepare("SELECT id FROM user WHERE user_id = :user_id");
 $stmt->bindValue(':user_id', $user_id, PDO::PARAM_STR);
 $stmt->execute();
 
@@ -61,12 +61,18 @@ error_log(print_r($result, true) . "\n", 3, 'php.log');
 
 
 /*登録されていなかったら（countが0だったら）登録処理を行う*/
-if(!(int)array_shift($result)){
+if(!(int)reset($result)){
     $user_id = $event->getUserId();
     error_log("if".$user_id. "\n", 3, 'php.log');
-    $stmt = $pdo -> prepare("INSERT INTO user (user_id) VALUES (:user_id)");
+    $stmt = $dbh -> prepare("INSERT INTO user (user_id) VALUES (:user_id)");
     $stmt->bindValue(':user_id', $user_id, PDO::PARAM_STR);
     $stmt->execute();
+    $id = (int)reset($result);
+    error_log('ユーザID:'. $id . "\n", 3, 'php.log');
+}else{
+    $id = (int)reset($result);
+    error_log('ユーザID:'. $id . "\n", 3, 'php.log');
+
 }
 
 //TODO登録処理
@@ -74,15 +80,89 @@ $GetText = $event->getText();
 /*テキストがTODO:,todo:,Todo:で始まっていたら*/
 if(preg_match('/^TODO:/',$GetText) || preg_match('/^Todo:/',$GetText) || preg_match('/^todo:/',$GetText)){
     /* todo:以下の文字列をDB(todo)に登録 */
-    $GetText = $event->getText();
     error_log('TODO登録処理開始gettext:'. $GetText . "\n", 3, 'php.log');
 
-    preg_replace('/todo:(\w+)/',$GetText,$match);
-    // $str = "http://example.com?name=riki&page=30&count=100";
-    // preg_match('/name=(\w+)/', $str, $match);
+    preg_match('/:([\wぁ-んァ-ヶ一-龠々]+)/',$GetText,$match);
     error_log('ResisterTodo:'. print_r($match,true) . "\n", 3, 'php.log');
     
+    /* TODOをINSERTする */
+    $stmt = $dbh -> prepare("INSERT INTO todo (content,u_id) VALUES (:content,:u_id)");
+    $stmt->bindValue(':content', $match[1], PDO::PARAM_STR);
+    $stmt->bindValue(':u_id', $id, PDO::PARAM_INT);
+
+    $stmt->execute();
+    $reply_token = $event->getReplyToken();
+    $bot->replyText($reply_token, 'TODO登録完了！');
+
 }
+
+//TODO確認処理
+if($GetText === 'list' || $GetText === 'リスト'){
+    error_log('TODO確認開始'. $GetText . "\n", 3, 'php.log');
+    $stmt = $dbh -> prepare("SELECT c_id,content FROM todo WHERE u_id = :u_id");
+    $stmt->bindValue(':u_id', $id, PDO::PARAM_INT);
+    $stmt->execute();
+    $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    error_log('TODOのなかみ'.print_r($result,true) . "\n", 3, 'php.log');
+    
+    $reply_token = $event->getReplyToken();
+    $count = count($result);
+    $todo_list = "やることリスト!!\n";
+    for($i = 0;$i < $count;$i++){
+        if($i === ($count-1)){
+            error_log('c_id'.$result[$i]['c_id'] .'content'.$result[$i]['content']. "\n", 3, 'php.log');
+            $todo_list .= $result[$i]['c_id'].': '.$result[$i]['content'];
+            error_log('TODOの表示内容'.$todo_list . "\n", 3, 'php.log');
+        }else{
+            error_log('c_id'.$result[$i]['c_id'] .'content'.$result[$i]['content']. "\n", 3, 'php.log');
+            $todo_list .= $result[$i]['c_id'].': '.$result[$i]['content']."\n";
+            error_log('TODOの表示内容'.$todo_list . "\n", 3, 'php.log');
+        }
+
+    }
+
+    $bot->replyText($reply_token, $todo_list);
+
+}
+
+
+
+//TODO完了処理
+if(preg_match('/^DONE:/',$GetText) || preg_match('/^Done:/',$GetText) || preg_match('/^だん:/',$GetText) || preg_match('/^done:/',$GetText)){
+    /* todo:以下の文字列をDB(todo)に登録 */
+    error_log('TODO完了処理開始gettext:'. $GetText . "\n", 3, 'php.log');
+
+    preg_match('/:(\d{1,4})/',$GetText,$match);
+    error_log('c_id:'. print_r($match,true) . "\n", 3, 'php.log');
+    
+    $delete_c_id = intval($match[1]);
+    error_log('debug:'. '1' . "\n", 3, 'php.log');
+
+    /* TODOをDELETEする */
+    $stmt = $dbh -> prepare("DELETE FROM todo WHERE c_id = :c_id");
+    error_log('debug:'. '2' . "\n", 3, 'php.log');
+
+    $stmt->bindValue(':c_id', $delete_c_id, PDO::PARAM_INT);
+    error_log('debug:'. '3'.print_r($dbh->errorInfo()) . "\n", 3, 'php.log');
+
+    $stmt->execute();
+    error_log('debug:'.'4'. print_r($dbh->errorInfo()) . "\n", 3, 'php.log');
+
+    error_log('rowcount:'. $stmt->rowCount() . "\n", 3, 'php.log');
+    if($stmt->rowCount()){
+        $reply_token = $event->getReplyToken();
+        $bot->replyText($reply_token, 'TODO削除完了！');
+    }else{
+        $reply_token = $event->getReplyToken();
+        $bot->replyText($reply_token, 'TODO削除できませんでした...');
+    }
+
+
+}
+
+
+
+
 
 $reply_token = $event->getReplyToken();
 $GetText = $event->getText();
