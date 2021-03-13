@@ -6,10 +6,15 @@ use LINE\LINEBot\Constant\HTTPHeader;
 use LINE\LINEBot\HTTPClient\CurlHTTPClient;
 use LINE\LINEBot;
 
+// 引数は「.env」ファイルが存在するディレクトリを指定する
+use Dotenv\Dotenv;
+$dotenv = Dotenv::createImmutable(__DIR__);
+$dotenv->load();
+
 
 //LINEBOT開始処理
-$channel_access_token = 'mrdpGNpUWQPA9bFbQtXo9rWX9S7TKALozNHqRCH9OwGuS/ufzJCbPOrHv8xkRzJJuQZiAiSlhz7aQKhfczrCBS/yO6eaATsd3hbx+uMjaIIw2Gmextay9LpTLILeZ9d6cfakWaPc75a9bxnmPSrBFAdB04t89/1O/w1cDnyilFU=';
-$channel_secret = 'c5e8e2269583dbd5bddf88794c308a9e';
+$channel_access_token = $_ENV['CHANNEL_ACCESS_TOKEN'];
+$channel_secret = $_ENV['CHANNEL_SECRET'];
 $http_client = new CurlHTTPClient($channel_access_token);
 $bot = new LINEBot($http_client, ['channelSecret' => $channel_secret]);
 $signature = $_SERVER['HTTP_' . HTTPHeader::LINE_SIGNATURE];
@@ -18,18 +23,17 @@ $events = $bot->parseEventRequest($inputData, $signature);
 $event = $events[0];
 
 
-
 //ログをとる
 //error_log(print_r($event, true) . "\n", 3, 'php.log');
 
 //LINEBOTDB接続処理
 try {
+    $dns = $_ENV['DNS'];
+    $username = $_ENV['USERNAME'];
+    $password = $_ENV['PASSWORD'];
 
     // データベースに接続
-    $dbh = new PDO(
-        'mysql:dbname=LAA1276112-linebot;host=mysql150.phy.lolipop.lan;charset=utf8mb4',
-        'LAA1276112',
-        'LINEadmin',
+    $dbh = new PDO($dns,$username,$password,
         [
             PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
             PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
