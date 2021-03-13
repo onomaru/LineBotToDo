@@ -43,7 +43,7 @@ try {
 
 } catch (PDOException $e) {
 
-    error_log('エラー発生:' . $e->getMessage());
+    error_log('DBエラー発生:' . $e->getMessage(). "\n", 3, 'php.log');
     exit($e->getMessage());
 }
 
