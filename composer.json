@@ -1,5 +1,6 @@
 {
     "require": {
-        "linecorp/line-bot-sdk": "^6.2"
+        "linecorp/line-bot-sdk": "^6.2",
+        "vlucas/phpdotenv": "^5.3"
     }
 }
