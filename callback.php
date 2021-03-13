@@ -5,9 +5,6 @@ require('vendor/autoload.php');
 use LINE\LINEBot\Constant\HTTPHeader;
 use LINE\LINEBot\HTTPClient\CurlHTTPClient;
 use LINE\LINEBot;
-use LINE\LINEBot\TemplateActionBuilder\PostbackTemplateActionBuilder;
-use LINE\LINEBot\MessageBuilder\TemplateMessageBuilder;
-use LINE\LINEBot\MessageBuilder\TemplateBuilder\ButtonTemplateBuilder;
 
 
 //LINEBOT開始処理
@@ -107,18 +104,22 @@ if($GetText === 'list' || $GetText === 'リスト'){
     
     $reply_token = $event->getReplyToken();
     $count = count($result);
-    $todo_list = "やることリスト!!\n";
+    $todo_list = "【やることリスト】\n";
+
     for($i = 0;$i < $count;$i++){
         if($i === ($count-1)){
             error_log('c_id'.$result[$i]['c_id'] .'content'.$result[$i]['content']. "\n", 3, 'php.log');
-            $todo_list .= $result[$i]['c_id'].': '.$result[$i]['content'];
+            //$todo_list .= $result[$i]['c_id'].': '.$result[$i]['content'];
+            $todo_list .= '・ '.$result[$i]['content'];
+
             error_log('TODOの表示内容'.$todo_list . "\n", 3, 'php.log');
         }else{
             error_log('c_id'.$result[$i]['c_id'] .'content'.$result[$i]['content']. "\n", 3, 'php.log');
-            $todo_list .= $result[$i]['c_id'].': '.$result[$i]['content']."\n";
+            //$todo_list .= $result[$i]['c_id'].': '.$result[$i]['content']."\n";
+            $todo_list .= '・ '.$result[$i]['content']."\n";
+
             error_log('TODOの表示内容'.$todo_list . "\n", 3, 'php.log');
         }
-
     }
 
     $bot->replyText($reply_token, $todo_list);
@@ -131,22 +132,22 @@ if($GetText === 'list' || $GetText === 'リスト'){
 if(preg_match('/^DONE:/',$GetText) || preg_match('/^Done:/',$GetText) || preg_match('/^だん:/',$GetText) || preg_match('/^done:/',$GetText)){
     /* todo:以下の文字列をDB(todo)に登録 */
     error_log('TODO完了処理開始gettext:'. $GetText . "\n", 3, 'php.log');
+    preg_match('/:([\wぁ-んァ-ヶ一-龠々]+)/',$GetText,$match);
+    //error_log('c_id:'. print_r($match,true) . "\n", 3, 'php.log');
+    $delete_content = $match[1];
 
-    preg_match('/:(\d{1,4})/',$GetText,$match);
-    error_log('c_id:'. print_r($match,true) . "\n", 3, 'php.log');
-    
-    $delete_c_id = intval($match[1]);
-    error_log('debug:'. '1' . "\n", 3, 'php.log');
+    if($delete_content == '全削除'){
+        $stmt = $dbh -> prepare("DELETE FROM todo WHERE u_id = :u_id");
+        $stmt->bindValue(':u_id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+    }else{
+        /* TODOをDELETEする */
+        $stmt = $dbh -> prepare("DELETE FROM todo WHERE content = :content AND u_id = :u_id");
+        $stmt->bindValue(':content', $delete_content, PDO::PARAM_STR);
+        $stmt->bindValue(':u_id', $id, PDO::PARAM_INT);
+        $stmt->execute();
+    }
 
-    /* TODOをDELETEする */
-    $stmt = $dbh -> prepare("DELETE FROM todo WHERE c_id = :c_id");
-    error_log('debug:'. '2' . "\n", 3, 'php.log');
-
-    $stmt->bindValue(':c_id', $delete_c_id, PDO::PARAM_INT);
-    error_log('debug:'. '3'.print_r($dbh->errorInfo()) . "\n", 3, 'php.log');
-
-    $stmt->execute();
-    error_log('debug:'.'4'. print_r($dbh->errorInfo()) . "\n", 3, 'php.log');
 
     error_log('rowcount:'. $stmt->rowCount() . "\n", 3, 'php.log');
     if($stmt->rowCount()){
@@ -163,16 +164,10 @@ if(preg_match('/^DONE:/',$GetText) || preg_match('/^Done:/',$GetText) || preg_ma
 
 
 
-
+//関係ない文が送られてきた場合
 $reply_token = $event->getReplyToken();
 $GetText = $event->getText();
-
-$reply_text = 'NO';
-
-if ($GetText === 'todo') {
-    $reply_text = '登録完了';
-}
-
+$reply_text = 'こんにちは！';
 $bot->replyText($reply_token, $reply_text);
 
 
